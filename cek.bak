@@ -65,8 +65,6 @@
     [`(,(? aexpr? ae0) ,(? aexpr? aes) ...) #t]
     ;; Let forms
     [`(let ([,x ,(? expr? e)]) ,(? expr? let-body)) #t]
-    ;; IF forms
-    [`(if ,(? aexpr? cond) ,(? expr? itrue) ,(? expr? ifalse)) #t]
     ;; Returns
     [(? aexpr? ae) #t]
     [else #f]))
@@ -116,8 +114,8 @@
   (match ae
     [(? number? n) n]
     [(? boolean? b) b]
-    [(? symbol? x)(begin (displayln "Symbol eval") (hash-ref ρ x))]
-    [`(lambda (,x ...) ,e) (begin (displayln "Lambda eval")  `(clo, ae, ρ))]))
+    [(? symbol? x)(begin (pretty-print ρ) (hash-ref ρ x))]
+    [`(lambda (,x) ,e) `(clo, ae, ρ)]))
 
 ;; Step relation: Σ → Σ
 ;; TODO: Complete the implementation for each case.
@@ -138,28 +136,22 @@
     [`(,(? aexpr? ae) ,ρ (let ,x ,ρ-prime ,e ,k)) (displayln "let2 df")
      `(,e ,(hash-set ρ-prime x (aeval ae ρ)) ,k)]
     
-    ;; Handle an if expression.
-    ;; 
-    [`((if ,(? expr? cond) ,(? expr? itrue) ,(? expr? ifalse)) ,ρ ,k) (displayln "if df")
-      (if (aeval cond ρ)
-          `(,itrue ,ρ ,k)
-          `(,ifalse ,ρ ,k))]
-    
     ;; Application. Each is an atomic expression. Assume that ae0 will
     ;; evaluate to a closure. This means that `(aeval ae0 ρ) will
     ;; evaluate to something that matches something like `(clo (lambda
     ;; (,xs ...) ,e-body) ,ρ-prime).
     [`((,ae0 ,aes ...) ,ρ ,k) 
      (match (aeval ae0 ρ)
+       
        [`(clo (lambda (,xs ...) ,e-body) ,ρ-prime)
-         (let ([ρ-2 (foldl (lambda (x y m) (begin (pretty-print x) (pretty-print y) (pretty-print m) (hash-set m  y (aeval x ρ)))) ρ aes xs)])
-               `(,e-body ,ρ-2 ,k))])]
+         (begin (displayln "hasdf") (foldl (lambda (x y) (hash-set* ρ  y (aeval x ρ))) xs aes)
+               `(,e-body ,ρ ,k))])]
     ))
 
 ;; TODO: Is this state at a done configuration?
 (define (done? state)
   (match state
-    [`(,(? aexpr? ae) ,ρ mt)  `((aeval ae ρ) ,ρ mt)]
+    [`(,(? aexpr? ae) ,ρ mt)  #t]
     [else #f]))
 
 ;; Iterate the state to a final answer, build up a transition graph.
@@ -208,7 +200,7 @@
 (repl)
 
 ;; Part 3:
-;;  (if (lambda (x) x) (let ([x (lambda (x) x)]) (x 2)) (let ([x (lambda (x) x)]) (x 3)) )
+;; 
 ;; Answer the following questions in as much detail as you think is
 ;; helpful to you understanding. These questions are meant to address
 ;; broad knowledge about the project and its relation to other
@@ -227,44 +219,14 @@
 ;; labeled and manually go to the next one, which defeats the entire
 ;; point of having basic blocks.
 ;; 
-;;   Since ANF alows only a `let` continuation it would allow all instructions
-;;  that are consecuative/(don't require a jump) to be represented using a `let`statment. 
-;;  This more or less resembels the assembly language represention and data flow analysis.
-;;  Resembling a real representaion/excution of the program.
-;;
-;;
-;;
-;; 
 ;; - Sketch out, either via modifying the predicates above or in
 ;; ASCII/Unicode-based math how the machine would look if it were to
 ;; handle the CPS lambda calculus.
-;;  <aexp> ::= <var>
-;;          |  <lit>
-;;          | (λ (<var>) <exp>)
-;;          | (λ (<var>) <texp>)
 ;; 
-;;  <exp> ::= (<aexp> <aexp>)
-;;          | (let ([<var> <aexp>]) <exp>)
-;;          | <aexp>
-;;  
-;; <texp> ::= (<exp> <exp>*)
-;;
-;; where <exp>* is a continuation stored in the enviroment.
-;;       
-;; (`(λ (<var>) (<exp> <exp>*) ),ρ ,k) -> (ρ'[<exp>*], ρ', k)        
-;;
-;;
-;;
 ;; - If you were to convert the language to CPS, your interpreter
 ;; rules would change. How would they change? Hint: think about
 ;; whether you truly need the continuation in that case.
-;;
-;;   The interpreter dosen't need any continutaion since every expression is a tail-call. 
-;;  So we can easily store the tail-call in the enviroment and access the enviroment to find the next expression.
-;;
+;; 
 ;; - Elaborate upon the following observation with a few examples: in
 ;; CPS, every expression is a tail-call, while in ANF every expression
 ;; is either a tail call or a return.
-;;   In CPS every expression is a tail-call becouse the next instruction to be excuted is expilicitly provided by the
-;;  current expression. In case of A-normal form no explicit information is required for a tail-call, when needed it is
-;;  embeded in the language construct.
